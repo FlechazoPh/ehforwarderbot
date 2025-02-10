@@ -1,1 +1,2 @@
-dir: "/data/pchook/WeChat/Files/"
+dir: "/comwechat/Files/"
+comwechat_url: http://127.0.0.1:18888
