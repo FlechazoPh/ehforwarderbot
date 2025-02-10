@@ -10,13 +10,11 @@ services:
     restart: unless-stopped
     environment:
       - EFB_PROFILE=comwechat
+      - COMWECHAT_HOOK_URL=http://127.0.0.1:18889
     logging:
       driver: json-file
       options:
         max-size: 1m
-    depends_on:
-      - comwechat
-      - comwechat2
 
   comwechat:
     container_name: comwechat
@@ -29,5 +27,5 @@ services:
     privileged: true
     ports:
       - 5905:5905
-      - 18888:18888
+      - 18889:18888
     image: tomsnow1999/docker-com_wechat_robot:latest
