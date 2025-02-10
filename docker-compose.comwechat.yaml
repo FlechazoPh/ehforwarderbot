@@ -26,7 +26,6 @@ services:
     volumes:
         - "./profiles/comwechat/honus.comwechat/WeChat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         - "./profiles/comwechat/honus.comwechat/WeChat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
-        - "./comwechat.py:/comwechat.py"
     privileged: true
     ports:
       - 5905:5905
