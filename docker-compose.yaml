@@ -22,6 +22,8 @@ services:
     volumes:
         - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
+        - ./comwechat.py:/comwechat.py
+    command: /comwechat.py
     privileged: true
     network_mode: bridge
     ports:
@@ -51,6 +53,8 @@ services:
     volumes:
         - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
+        - ./comwechat.py:/comwechat.py
+    command: /comwechat.py
     privileged: true
     network_mode: bridge
     ports:
