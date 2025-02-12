@@ -18,6 +18,9 @@ $ git clone https://github.com/jiz4oh/ehforwarderbot ehforwarderbot
 
 ```console
 $ cd ehforwarderbot
+# comwechat
 $ docker compose up -d
+# web
+$ docker compose -f ./docker-compose.web.yaml up -d
 ```
 
