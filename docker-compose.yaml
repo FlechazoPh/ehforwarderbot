@@ -23,7 +23,7 @@ services:
         - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
         - ./run2.py:/run2.py
-    command: /comwechat.py
+    command: /run2.py
     privileged: true
     network_mode: bridge
     restart: unless-stopped
@@ -51,7 +51,7 @@ services:
         - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
         - ./run2.py:/run2.py
-    command: /comwechat.py
+    command: /run2.py
     privileged: true
     network_mode: bridge
     restart: unless-stopped
