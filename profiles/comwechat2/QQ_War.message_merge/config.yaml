@@ -1,0 +1,14 @@
+# https://github.com/QQ-War/efb_message_merge
+mastersendback: False
+
+messagekeeptime: 120
+#此处单位是分钟，不配置的话，默认时间5分钟。
+
+samemessagegroup:
+ - "收到/取消 群语音邀请"
+ - "收到"
+samemessageprivate:
+ - "语音/视频聊天\n  - - - - - - - - - - - - - - - \n不支持的消息类型, 请在微信端查看"
+
+comwechatretrive: True
+#此处为True是处理，主要针对comwechat端，其他端可以改成False。

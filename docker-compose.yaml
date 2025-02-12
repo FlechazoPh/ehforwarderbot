@@ -3,7 +3,6 @@ version: "3.3"
 services:
   efb:
     image: ghcr.io/jiz4oh/efb
-    container_name: efb
     volumes:
       - .:/data
       - "./comwechat/Files/:/comwechat/Files/"
@@ -17,7 +16,6 @@ services:
         max-size: 1m
 
   comwechat:
-    container_name: comwechat
     environment:
         - VNCPASS=jiz4oh
         - COMWECHAT=https://github.com/ljc545w/ComWeChatRobot/releases/download/3.7.0.30-0.1.0-pre/3.7.0.30-0.1.0-pre.zip
@@ -25,8 +23,38 @@ services:
         - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
     privileged: true
+    network_mode: bridge
     ports:
-      - 5905:5905
+      # - 5905:5905
       - 18888:18888
+    restart: unless-stopped
+    image: tomsnow1999/docker-com_wechat_robot:latest
+
+  efb2:
+    image: ghcr.io/jiz4oh/efb
+    volumes:
+      - .:/data
+      - "./comwechat/efb2/Files/:/comwechat/Files/"
+    restart: unless-stopped
+    network_mode: "service:comwechat2"
+    environment:
+      - EFB_PROFILE=comwechat2
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+  comwechat2:
+    environment:
+        - VNCPASS=jiz4oh
+        - COMWECHAT=https://github.com/ljc545w/ComWeChatRobot/releases/download/3.7.0.30-0.1.0-pre/3.7.0.30-0.1.0-pre.zip
+    volumes:
+        - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
+        # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
+    privileged: true
+    network_mode: bridge
+    ports:
+      # - 5905:5905
+      - 18889:18888
     restart: unless-stopped
     image: tomsnow1999/docker-com_wechat_robot:latest
