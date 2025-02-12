@@ -22,7 +22,7 @@ RUN apk add --no-cache --virtual .build-deps git build-base gcc python3-dev \
 #{{{comwechat
 RUN set -ex; \
     apk --update upgrade; \
-    apk --update add --no-cache python3-dev py3-pillow py3-ruamel.yaml libmagic ffmpeg git gcc zlib-dev jpeg-dev musl-dev libffi-dev openssl-dev libwebp-dev
+    apk --update add --no-cache python3-dev py3-pillow py3-ruamel.yaml libmagic ffmpeg git gcc zlib-dev jpeg-dev musl-dev libffi-dev openssl-dev libwebp-dev zbar-dev
 
 RUN pip3 install git+https://github.com/QQ-War/efb-telegram-master.git; \
     pip3 install ehforwarderbot python-telegram-bot; \
@@ -31,7 +31,7 @@ RUN pip3 install git+https://github.com/QQ-War/efb-telegram-master.git; \
     pip3 install git+https://github.com/QQ-War/efb-keyword-reply.git; \
     pip3 install git+https://github.com/QQ-War/efb_message_merge.git; \
     pip3 install urllib3==1.26.15; \
-    pip3 install --no-deps --force-reinstall Pillow; \
+    pip3 install --no-deps --force-reinstall rich Pillow; \
     pip3 install --ignore-installed PyYAML TgCrypto
 #}}}
 

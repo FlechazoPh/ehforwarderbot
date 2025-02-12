@@ -26,9 +26,6 @@ services:
     command: /comwechat.py
     privileged: true
     network_mode: bridge
-    ports:
-      # - 5905:5905
-      - 18888:18888
     restart: unless-stopped
     image: tomsnow1999/docker-com_wechat_robot:latest
 
@@ -57,8 +54,5 @@ services:
     command: /comwechat.py
     privileged: true
     network_mode: bridge
-    ports:
-      # - 5905:5905
-      - 18889:18888
     restart: unless-stopped
     image: tomsnow1999/docker-com_wechat_robot:latest
