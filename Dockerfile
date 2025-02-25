@@ -26,7 +26,7 @@ RUN set -ex; \
 
 RUN pip3 install git+https://github.com/QQ-War/efb-telegram-master.git; \
     pip3 install ehforwarderbot python-telegram-bot; \
-    pip3 install git+https://github.com/jiz4oh/python-comwechatrobot-http.git; \
+    pip3 install git+https://github.com/0honus0/python-comwechatrobot-http.git; \
     pip3 install git+https://github.com/jiz4oh/efb-wechat-comwechat-slave.git; \
     pip3 install git+https://github.com/QQ-War/efb-keyword-reply.git; \
     pip3 install git+https://github.com/QQ-War/efb_message_merge.git; \
