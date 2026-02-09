@@ -36,13 +36,13 @@ class DockerWechatHook:
         # self.wechat = subprocess.run(['wine','/home/user/.wine/drive_c/Program Files/Tencent/WeChat/WeChat.exe'])
 
     def run_hook(self):
-        print("等待 5 秒再 hook", flush=True)
-        time.sleep(5)
+        print("等待 10 秒再 hook", flush=True)
+        time.sleep(10)
         self.reg_hook = subprocess.Popen(['wine','/comwechat/http/WeChatHook.exe'])
         # self.reg_hook = subprocess.run(['wine', 'explorer.exe'])
     
     def change_version(self):
-        time.sleep(5)
+        time.sleep(10)
         result = subprocess.run(['curl', '-X', 'POST', 'http://127.0.0.1:18888/api/?type=35', '-H', 'Content-Type: application/json', '-d', json.dumps({"path": "/comwechat/http/WeChatHook.exe", "version": version})], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             print(f"Curl command failed with error: {result.stderr.decode()}", flush=True)

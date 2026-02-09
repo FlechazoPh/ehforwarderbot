@@ -1,2 +1,2 @@
 dir: "/comwechat/Files/"
-qrcode_timeout: 10
+qrcode_timeout: 15
