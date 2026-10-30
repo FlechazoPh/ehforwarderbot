@@ -1,0 +1,4 @@
+# 公众号文章 InstantView 配置模板（脱敏）
+# 复制为 config.yaml 并填入你自己的 Telegraph token。
+
+telegraph_token: "YOUR_TELEGRAPH_TOKEN"   # 参考 https://telegra.ph/api#createAccount

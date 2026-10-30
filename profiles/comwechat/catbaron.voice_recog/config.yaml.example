@@ -1,0 +1,15 @@
+# 语音识别中间件配置模板（脱敏）
+# 复制为 config.yaml 并填入你自己的密钥。
+#
+# 注意：
+# 1) 只保留你实际开通了的引擎，未配置密钥的段要整段删除，
+#    否则中间件初始化时会因密钥无效而抛异常。
+# 2) lang 合法值只有 zh / en / ca（不要写成 "en, zh"）。
+
+speech_api:
+    tencent:
+        secret_id: "YOUR_SECRET_ID"
+        secret_key: "YOUR_SECRET_KEY"
+        # supported language: zh, en
+        lang: zh
+auto: true

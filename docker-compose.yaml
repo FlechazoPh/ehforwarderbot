@@ -1,0 +1,69 @@
+version: "3.3"
+
+services:
+  efb:
+    image: ghcr.io/jiz4oh/efb
+    # command: >
+    #   sh -c "pip3 install efb-voice-recog-middleware 
+    #   && ehforwarderbot"
+    volumes:
+      - .:/data
+      - "./comwechat/Files/:/comwechat/Files/"
+      - "./cleanup.sh:/etc/periodic/daily/cleanup.sh"
+    restart: unless-stopped
+    network_mode: "service:comwechat"
+    environment:
+      - EFB_PROFILE=comwechat
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+  comwechat:
+    environment:
+        - VNCPASS=your_vnc_password
+        - COMWECHAT=https://github.com/ljc545w/ComWeChatRobot/releases/download/3.7.0.30-0.1.0-pre/3.7.0.30-0.1.0-pre.zip
+    volumes:
+        - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
+        # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
+        - ./run2.py:/run2.py
+        - ./comwechat.zip:/comwechat.zip
+    ports:
+      - 5905:5905
+    command: /run2.py
+    privileged: true
+    network_mode: bridge
+    hostname: efb
+    restart: unless-stopped
+    image: tomsnow1999/docker-com_wechat_robot:latest
+
+  # efb2:
+  #   image: ghcr.io/jiz4oh/efb
+  #   volumes:
+  #     - .:/data
+  #     - "./comwechat/efb2/Files/:/comwechat/Files/"
+  #     - "./cleanup.sh:/etc/periodic/daily/cleanup.sh"
+  #   restart: unless-stopped
+  #   network_mode: "service:comwechat2"
+  #   environment:
+  #     - EFB_PROFILE=comwechat2
+  #   logging:
+  #     driver: json-file
+  #     options:
+  #       max-size: 1m
+
+  # comwechat2:
+  #   environment:
+  #       - VNCPASS=your_vnc_password
+  #       - COMWECHAT=https://github.com/ljc545w/ComWeChatRobot/releases/download/3.7.0.30-0.1.0-pre/3.7.0.30-0.1.0-pre.zip
+  #   volumes:
+  #       - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
+  #       # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
+  #       - ./run2.py:/run2.py
+  #   ports:
+  #     - 5906:5905
+  #   command: /run2.py
+  #   privileged: true
+  #   network_mode: bridge
+  #   restart: unless-stopped
+  #   image: tomsnow1999/docker-com_wechat_robot:latest

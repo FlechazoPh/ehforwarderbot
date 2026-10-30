@@ -1,0 +1,15 @@
+token: "YOUR_TELEGRAM_BOT_TOKEN" # 必须修改，可参考 https://winamp.eu.org/266.html
+admins:
+- YOUR_TELEGRAM_USER_ID # 必须修改，可参考 https://winamp.eu.org/266.html
+# ETM 默认 read_timeout=15s。上传大文件（如 5.6MB 图片）到 Telegram 时，
+# 网络稍慢就会在 15s 内拿不到响应，被判为超时后 "无限重试"，
+# 而 Telegram 其实已收到，导致同一条消息重复投递多次。这里放宽读超时。
+request_kwargs:
+    read_timeout: 120
+    connect_timeout: 20
+flags: # 可选 flag，详见 https://github.com/ehForwarderBot/efb-telegram-master?tab=readme-ov-file#experimental-flags
+    retry_on_error: true
+    # 关闭自动语言设置，使用 systemd 启动时默认中文
+    auto_locale: false
+    animated_stickers: true
+    topic_group: -1001580427954 # 开启 topic_group 所用，参考 https://www.jiz4oh.com/2025/04/set-topic-in-efb
