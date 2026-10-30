@@ -45,7 +45,23 @@ RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@${PYTHON_COMWECHATROBOT_HTTP_REF}; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-wechat-comwechat-slave.git@${EFB_WECHAT_COMWECHAT_SLAVE_REF}; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
-    pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
+    pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff; \
+    # ---- 自建镜像加装的两个插件（上游预构建镜像未包含）----
+    # 语音消息转文字
+    pip3 install --no-cache-dir efb-voice_recog-middleware; \
+    # 中文关键词搜索历史消息
+    pip3 install --no-cache-dir efb-search_msg-middleware; \
+    # search_msg 元数据里 "python-telegram-bot (>=10.0.0<12.0.0)" 缺逗号，
+    # pkg_resources 加载中间件时会抛 InvalidRequirement，去掉其版本约束
+    sed -i -E 's/^Requires-Dist: python-telegram-bot.*/Requires-Dist: python-telegram-bot/' \
+        /usr/local/lib/python3.11/site-packages/efb_search_msg_middleware-*.dist-info/METADATA || true;
+
+# ---- 行为定制补丁（见 patches/patch_custom.py）----
+#   1) 发送者只显示一个名字，避免昵称含特殊 Unicode 时括号里显示成方块
+#   2) 微信媒体等待 5s -> 60s（原图延迟下载，5 秒必然失败）
+#   3) 原图等不到时用微信缩略图兜底
+COPY patches/patch_custom.py /tmp/patch_custom.py
+RUN python3 /tmp/patch_custom.py && rm -f /tmp/patch_custom.py
 
 # Keep build-only bytecode and packaging tools out of the copied runtime tree.
 RUN find /usr/local/lib/python3.11/site-packages -type f \

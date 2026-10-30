@@ -1,0 +1,18 @@
+# Telegram Master Channel 配置模板（脱敏）
+# 复制为 config.yaml 后填入你自己的值，切勿提交真实配置到公开仓库。
+
+token: "YOUR_TELEGRAM_BOT_TOKEN"   # 向 @BotFather 申请
+admins:
+- YOUR_TELEGRAM_USER_ID            # 你的 Telegram 数字 ID，可用 @userinfobot 获取
+
+# 放宽读超时：默认 15s 在上传大文件时容易超时，触发 ETM 无限重试，
+# 导致同一条消息被重复投递多次。
+request_kwargs:
+    read_timeout: 120
+    connect_timeout: 20
+
+flags:
+    retry_on_error: true    # 真失败时重试（建议保留，关闭会丢消息）
+    auto_locale: false
+    animated_stickers: true
+    # topic_group: -100XXXXXXXXXX   # 如需论坛/Topic 模式，填入群组 ID
