@@ -13,4 +13,4 @@ profiles/*/catbaron.mp_instantview/config.yaml
 profiles/*/*/media_retry_cache.json*
 profiles/*/*/animated_sticker_cache/
 profiles/*/catbaron.search_msg/
-profiles/*/*/cache.sqlite3      # 转发历史缓存，含真实链接
+profiles/*/*/cache.sqlite3
