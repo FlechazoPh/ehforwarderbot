@@ -9,3 +9,8 @@ parsehub/config.yaml
 # 含真实密钥的配置（运行时文件，由 scripts/init_secrets.py 从 .env 渲染）
 profiles/*/blueset.telegram/config.yaml
 profiles/*/catbaron.mp_instantview/config.yaml
+# 运行时缓存：含真实 wxid / 群 UID / 消息内容，不得入库
+profiles/*/*/media_retry_cache.json*
+profiles/*/*/animated_sticker_cache/
+profiles/*/catbaron.search_msg/
+profiles/*/*/cache.sqlite3      # 转发历史缓存，含真实链接
