@@ -1,5 +1,10 @@
 ## Agent skills
 
+### Redeploy on a fresh server
+
+To deploy this stack on a new machine, follow `docs/agents/redeploy.md` (architecture,
+required secrets, step-by-step commands, verification and troubleshooting).
+
 ### Issue tracker
 
 Issues and specs live as Markdown files under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.

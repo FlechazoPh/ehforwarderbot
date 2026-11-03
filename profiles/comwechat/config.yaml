@@ -5,5 +5,14 @@ middlewares:
 - QQ_War.keyword_reply
 - QQ_War.message_merge
 - jiz4oh.keyword_replace
+# catbaron.mp_instantview 只处理公众号，已由 flechazo.telegraph 取代
 # - catbaron.mp_instantview
 - jiz4oh.map
+# 以下是自建镜像 efb-custom:v3.1.0-plus 才有的（上游预构建镜像不含，
+# 直接用 ghcr.io/jiz4oh/efb:v3.1.0 时必须注释掉，否则 EFB 无法启动）。
+- catbaron.voice_recog
+- catbaron.search_msg
+# 视频链接 -> 视频消息（放在 telegraph 之前）
+- flechazo.video_parser
+# 所有链接 -> Telegraph 存档与即时预览
+- flechazo.telegraph

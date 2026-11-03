@@ -18,6 +18,11 @@ services:
       EFB_PROFILE: comwechat
       WECHATROBOT_API_BASE: http://comwechat:18888
       WECHATROBOT_BRIDGE_API_BASE: http://comwechat:19088
+      # referenced as ${...} by profiles/*/flechazo.*/config.yaml
+      TELEGRAPH_TOKEN: ${TELEGRAPH_TOKEN:-}
+      TELEGRAPH_IMAGE_REPO: ${TELEGRAPH_IMAGE_REPO:-}
+      TELEGRAPH_IMAGE_GITHUB_TOKEN: ${TELEGRAPH_IMAGE_GITHUB_TOKEN:-}
+      VIDEO_PARSER_PROXY: ${VIDEO_PARSER_PROXY:-}
     logging:
       driver: json-file
       options:

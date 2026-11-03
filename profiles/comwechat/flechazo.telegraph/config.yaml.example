@@ -1,0 +1,28 @@
+# flechazo.telegraph — 所有链接存档到 Telegraph（即时预览），防盗链图片转存 GitHub
+# 文档: https://github.com/FlechazoPh/efb-telegraph-middleware
+# 本文件不含密钥：${...} 取自 efb 容器环境变量（compose.yaml 从 .env 传入）
+
+telegraph_token: "${TELEGRAPH_TOKEN}"
+author_name: ""
+
+# 直连失败（SSL 被干扰 / 403 等）时经 mihomo 代理重试
+fallback_proxy: "http://proxy:7890"
+
+process_links: true
+process_text_urls: true
+max_text_urls: 3
+
+skip_domains: []
+min_text_length: 80
+timeout: 25
+image_timeout: 300
+cache_days: 30
+
+image_host:
+  type: github
+  rehost: protected
+  repo: "${TELEGRAPH_IMAGE_REPO}"
+  token: "${TELEGRAPH_IMAGE_GITHUB_TOKEN}"
+  branch: main
+  max_side: 1600
+  jpeg_quality: 85

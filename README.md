@@ -19,14 +19,17 @@
 ```
 .
 ├── Dockerfile                 # EFB 镜像构建（含版本锁定与补丁）
-├── docker-compose.yaml        # 主部署编排（efb + comwechat）
+├── compose.yaml               # 主部署编排（efb + comwechat + telegram_bot_api）
+├── compose.override.yaml      # 本机覆盖（mihomo 代理等，不提交）
 ├── docker-compose.web.yaml    # Web 场景编排
 ├── docker-compose.windows.yaml# Windows/WSL 场景编排
 ├── entrypoint.sh              # 容器入口
 ├── run2.py                    # comwechat 容器内的启动脚本（VNC + 微信 + Hook）
 ├── cleanup.sh                 # 定期清理脚本
+├── proxy/gen_config.py        # 从订阅生成 mihomo 配置（proxy/config.yaml 不提交）
 ├── patches/                   # 对上游 Python 包的补丁脚本
-│   └── patch_comwechat.py
+│   └── patch_custom.py
+├── .env.example               # 环境变量模板（密钥集中于此）
 └── profiles/                  # EFB profile（master/slave/middleware 配置）
     └── comwechat/
 ```
@@ -52,36 +55,43 @@
 原因：新版 `python-comwechatrobot-http` 改为通过独立的 **bridge 服务（`:19088` / `/v1/messages/pull`）**
 拉取消息，而 `comwechat` 镜像并不提供该服务，会**导致消息完全收不到**。
 
-### 3. 修复微信图片「下载超时」
+### 3. 行为补丁（`patches/patch_custom.py`）
 
-- 现象：群图片经常显示 `[image 下载超时,请在手机端查看]`。
-- 根因：微信群原图是**延迟下载**的（消息 `extrainfo` 中 `cdnbigimgurl_pd_pri="30"`），
-  而 slave 里等待落盘的超时**硬编码为 120 秒**，经常卡在边界上。
-- **处理**：
-  - 等待时间 120s → **300s**（`patches/patch_comwechat.py`）；
-  - 超时后**回退使用微信已下载的缩略图**（取消息自带的 `thumb_path`，且校验文件真实存在），
-    而不是只显示一行「下载超时」文字。
+构建镜像时对已安装的插件打补丁（找不到目标片段时只告警、不中断构建）：
 
-### 4. 修复 Telegram 大文件被重复投递
+1. **群发送者名字**：恢复「备注 (微信名)」格式，但去掉无法渲染（会显示成方块）的字符，
+   且备注与微信名相同时只显示一个；并去掉上游给括号名字加的 `tg-spoiler` 遮罩。
+2. **微信图片下载超时**：群原图是**延迟下载**的（`extrainfo` 中 `cdnbigimgurl_pd_pri="30"`），
+   等待时间 5s → **60s**，超时后**回退用微信已下载的缩略图**，而不是显示「下载超时」。
+3. **EFB 重启后旧「重试」按钮仍可用**：从 slave 的 `media_retry` 库恢复过期回调。
+4. **媒体主动下载 + 缓存清理**：收到图片/视频/文件后主动触发微信下载原文件，
+   转发成功后删除其全部磁盘副本（原文件、重复副本、缩略图、解码图、Temp 副本），
+   并每小时清理超过 N 天的旧媒体缓存（避免微信目录无限增长）。
 
-- 现象：同一张图在 Telegram 里重复出现多次。
-- 根因：ETM 默认 `read_timeout=15s`，上传大文件（数 MB）时易超时，
-  触发其「无限重试」机制；而 Telegram 其实已收到，于是重复。
-- **处理**：在 `blueset.telegram/config.yaml` 中通过 `request_kwargs` 放宽为 `read_timeout: 120`。
+### 4. 修复 Telegram 大文件被重复投递 / 50MB 上限
 
-### 5. 新增两个中间件
+- 默认经公共 Bot API 上传大文件易超时触发 ETM「无限重试」而重复投递，单文件还受 50MB 限制。
+- **处理**：`compose.override.yaml` 起一个 **本地 Bot API Server**（上限 2GB），
+  经 **mihomo 代理** 连 Telegram；`blueset.telegram/config.yaml` 打开
+  `api_base_url` / `api_base_file_url` / `local_tdlib_api` 并把 `read_timeout` 放宽到 3600。
+
+### 5. 新增四个中间件
 
 | 中间件 | 作用 | 备注 |
 |---|---|---|
-| `catbaron.voice_recog` | 微信语音消息转文字 | 需自行开通对应云服务（如腾讯云 ASR） |
+| `catbaron.voice_recog` | 微信语音消息转文字 | 需自行开通云服务（如腾讯云 ASR） |
 | `catbaron.search_msg` | 按中文关键词搜索历史消息 | TG 对中文不分词，此中间件可补全 |
+| [`flechazo.telegraph`](https://github.com/FlechazoPh/efb-telegraph-middleware) | **所有链接**存档到 Telegraph，Telegram 里即时预览 | 防盗链图片自动转存到你的 GitHub 仓库 |
+| [`flechazo.video_parser`](https://github.com/FlechazoPh/efb-video-parser-middleware) | 视频链接下载为**视频消息**，超限无损分段并合并为一条相册 | B 站/小红书/YouTube/X 等；抖音需配 API 或 cookies |
 
 并修复了 `efb-search_msg-middleware` 元数据中的畸形依赖声明
 （`python-telegram-bot (>=10.0.0<12.0.0)`，缺逗号会导致 `pkg_resources` 抛 `InvalidRequirement`）。
 
+`flechazo.telegraph` 取代了只处理公众号的 `catbaron.mp_instantview`（已停用）。
+
 ### 6. 其他
 
-- 启用 `jiz4oh.map` 地图中间件、修正 `mp_instantview` 配置；
+- 启用 `jiz4oh.map` 地图中间件；
 - 补齐 `docker-compose` 中 `comwechat.zip` 的挂载。
 
 ---
@@ -102,22 +112,36 @@
 git clone <你的仓库地址> ehforwarderbot
 cd ehforwarderbot
 
-# 2. 准备配置（把示例配置复制为正式配置并填入自己的凭据）
-cp profiles/comwechat/blueset.telegram/config.yaml.example \
-   profiles/comwechat/blueset.telegram/config.yaml
-# 编辑填入 token / admins
-# 如需语音转文字：
-cp profiles/comwechat/catbaron.voice_recog/config.yaml.example \
-   profiles/comwechat/catbaron.voice_recog/config.yaml
+# 2. 准备环境变量（集中存放所有密钥，profile 配置用 ${...} 引用）
+cp .env.example .env
+#   填入 TELEGRAM_API_ID / TELEGRAM_API_HASH / COMWECHAT_VNC_PASSWORD
+#   如用 flechazo.telegraph：TELEGRAPH_IMAGE_REPO / TELEGRAPH_IMAGE_GITHUB_TOKEN
+#   如需代理：PROXY_SUB_URL 等
+chmod 600 .env
 
-# 3. 构建并启动（comwechat 先起，efb 共享其网络）
+# 3. 准备各 channel / 中间件配置（示例复制为正式配置）
+cp profiles/comwechat/blueset.telegram/config.yaml.example \
+   profiles/comwechat/blueset.telegram/config.yaml   # 填 token / admins
+cp profiles/comwechat/flechazo.telegraph/config.yaml.example \
+   profiles/comwechat/flechazo.telegraph/config.yaml
+cp profiles/comwechat/flechazo.video_parser/config.yaml.example \
+   profiles/comwechat/flechazo.video_parser/config.yaml
+# 语音转文字（可选）：cp catbaron.voice_recog/config.yaml.example 为 config.yaml
+
+# 4. 如需出站代理：从订阅生成 mihomo 配置
+python3 proxy/gen_config.py            # 读取 .env 的 PROXY_SUB_URL -> proxy/config.yaml
+
+# 5. 构建镜像并启动
+docker compose build
 docker compose up -d
 
-# 4. 通过 VNC 连接 5905 端口扫码登录微信
-#    （VNC 密码为 docker-compose.yaml 中的 VNCPASS，请自行修改）
+# 6. 通过 VNC 连接 5905 端口扫码登录微信（密码为 .env 里的 COMWECHAT_VNC_PASSWORD）
 
-# 5. 在 Telegram 里与自己的 Bot 对话，使用 /extra 等命令完成绑定
+# 7. 在 Telegram 里与自己的 Bot 对话，用 /extra 等命令完成绑定
 ```
+
+> `flechazo.*`、`voice_recog`、`search_msg` 中间件只在自建镜像 `efb-custom:v3.1.0-plus` 里。
+> 若改用上游预构建镜像 `ghcr.io/jiz4oh/efb:v3.1.0`，必须在 `config.yaml` 里注释掉它们，否则 EFB 无法启动。
 
 > 若你的 Docker 是 v1 插件形式（`docker compose` 不可用），请使用 `docker-compose` 命令。
 
@@ -136,15 +160,18 @@ docker compose ps                   # 查看状态
 
 ## 配置说明
 
-所有占位符都需要替换为你自己的值：
+密钥集中放在 `.env`，profile 下的 `config.yaml` 用 `${VAR}` 引用（`compose.yaml` 负责把变量传入 efb 容器）。
 
-| 占位符 | 位置 | 说明 |
-|---|---|---|
-| `YOUR_TELEGRAM_BOT_TOKEN` | `profiles/*/blueset.telegram/config.yaml` | BotFather 给的 Token |
-| `YOUR_TELEGRAM_USER_ID` | 同上 `admins` | 你的 Telegram 数字 ID |
-| `YOUR_TELEGRAPH_TOKEN` | `profiles/*/catbaron.mp_instantview/config.yaml` | 公众号 InstantView 用 |
-| `YOUR_SECRET_ID` / `YOUR_SECRET_KEY` | `profiles/*/catbaron.voice_recog/config.yaml` | 语音识别服务密钥 |
-| `VNCPASS` | `docker-compose.yaml` | VNC 连接密码，请务必修改 |
+| 变量（`.env`） | 说明 |
+|---|---|
+| `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` | 本地 Bot API Server 必需，[my.telegram.org](https://my.telegram.org) 获取 |
+| `COMWECHAT_VNC_PASSWORD` | VNC 扫码登录密码，务必修改 |
+| `TELEGRAPH_TOKEN` | 留空则 `flechazo.telegraph` 自动建号 |
+| `TELEGRAPH_IMAGE_REPO` / `TELEGRAPH_IMAGE_GITHUB_TOKEN` | 防盗链图片转存的公开仓库与写权限 token |
+| `VIDEO_PARSER_PROXY` | 视频中间件访问境外站点的代理 |
+| `PROXY_SUB_URL` 等 | mihomo 代理订阅（见 `proxy/gen_config.py`） |
+
+`blueset.telegram/config.yaml` 里的 `token` / `admins` 仍需直接填（BotFather Token 与你的 TG 数字 ID）。
 
 ### Telegram Master 推荐配置
 
@@ -152,14 +179,18 @@ docker compose ps                   # 查看状态
 token: "YOUR_TELEGRAM_BOT_TOKEN"
 admins:
 - YOUR_TELEGRAM_USER_ID
-# 放宽读超时，避免大文件上传被误判超时而重复投递
+# 使用本地 Bot API Server 时文件同步上传，读超时放宽到 1 小时，避免被误判超时而重复投递
 request_kwargs:
-    read_timeout: 120
+    read_timeout: 3600
     connect_timeout: 20
 flags:
     retry_on_error: true
     auto_locale: false
     animated_stickers: true
+    # 本地 Bot API Server（单文件上限 2GB），由 compose 里的 telegram_bot_api 提供
+    api_base_url: "http://telegram_bot_api:8081/bot"
+    api_base_file_url: "http://telegram_bot_api:8081/file/bot"
+    local_tdlib_api: true
 ```
 
 ### 中间件清单（`profiles/comwechat/config.yaml`）
@@ -172,10 +203,11 @@ middlewares:
 - QQ_War.keyword_reply
 - QQ_War.message_merge
 - jiz4oh.keyword_replace
-- catbaron.mp_instantview
 - jiz4oh.map
-- catbaron.voice_recog     # 可选，需开通云服务
-- catbaron.search_msg      # 可选
+- catbaron.voice_recog      # 可选，需开通云服务
+- catbaron.search_msg       # 可选
+- flechazo.video_parser     # 视频链接 -> 视频消息（放在 telegraph 之前）
+- flechazo.telegraph        # 所有链接 -> Telegraph 即时预览
 ```
 
 ---
@@ -184,23 +216,22 @@ middlewares:
 
 以下内容**绝对不要**提交到公开仓库：
 
-- Telegram Bot Token、管理员 ID
+- `.env`（Telegram API id/hash、Bot Token、GitHub token、代理订阅、VNC 密码等）
+- Telegram Bot Token、管理员 ID、Telegraph Token
 - 语音识别服务的 SecretId / SecretKey
-- Telegraph Token
-- VNC 密码（`VNCPASS`）
+- `proxy/config.yaml`（含代理节点凭据）、`compose.override.yaml`
 - `profiles/**` 下的真实配置、`*.db` 消息数据库、`comwechat/Files/` 聊天文件
 
-本仓库 `.gitignore` 已忽略 `*.db*`、`WeChat/`、`/comwechat/`。
-建议进一步忽略真实配置，只提交 `.example` 模板：
+本仓库 `.gitignore` 已忽略 `*.db*`、`WeChat/`、`/comwechat/`、`.env`、`compose.override.yaml`、
+`proxy/config.yaml`。真实 channel 配置建议只提交 `.example` 模板：
 
 ```
 profiles/*/blueset.telegram/config.yaml
 profiles/*/catbaron.voice_recog/config.yaml
-profiles/*/catbaron.mp_instantview/config.yaml
 ```
 
-> 如果你的仓库历史里曾经提交过这些凭据，请在推送前用 `git filter-repo` / BFG 清理历史，
-> 并且**立即到对应平台吊销（revoke）已泄露的 Token/密钥**。
+> 本方案已把密钥集中到 `.env`，`flechazo.*` 的 `config.yaml` 只用 `${...}` 引用、不含明文，可安全提交。
+> 如果仓库历史里曾提交过凭据，请用 `git filter-repo` / BFG 清理，并**立即吊销已泄露的 Token/密钥**。
 
 ---
 
@@ -233,6 +264,7 @@ profiles/*/catbaron.mp_instantview/config.yaml
 - **[tomsnow1999](https://github.com/tomsnow1999)** — `docker-com_wechat_robot` 镜像维护者；
 - **[QQ-War](https://github.com/QQ-War)** — `efb-keyword-reply`、`efb_message_merge` 作者；
 - **[catbaron](https://github.com/catbaron)** — `mp_instantview`、`voice_recog`、`search_msg` 等中间件作者；
+- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** 与 **ffmpeg** — `flechazo.video_parser` 的下载与分段基础；
 - **Wolfsilver** — `efb-patch-middleware`、`efb-online-middleware` 作者；
 - 以及 EhForwarderBot 社区所有贡献者与插件作者。
 

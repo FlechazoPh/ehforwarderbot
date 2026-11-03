@@ -56,10 +56,21 @@ RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot; \
     sed -i -E 's/^Requires-Dist: python-telegram-bot.*/Requires-Dist: python-telegram-bot/' \
         /usr/local/lib/python3.11/site-packages/efb_search_msg_middleware-*.dist-info/METADATA || true;
 
+# ---- 自研中间件（独立仓库，按 commit 固定，升级时改这两个 ARG）----
+#   flechazo.telegraph     所有链接存档到 Telegraph（即时预览），防盗链图片转存 GitHub
+#   flechazo.video_parser  视频链接下载成视频消息，超限无损分段并合并为一条相册（依赖 yt-dlp、ffmpeg）
+ARG EFB_TELEGRAPH_MIDDLEWARE_REF=9b7904238f923ee2f3c41ad935dee67878cc1a4f
+ARG EFB_VIDEO_PARSER_MIDDLEWARE_REF=fd5521b420d9425c126a5ab02fd4f5e761a228a6
+RUN pip3 install --no-cache-dir \
+        "git+https://github.com/FlechazoPh/efb-telegraph-middleware.git@${EFB_TELEGRAPH_MIDDLEWARE_REF}" \
+        "git+https://github.com/FlechazoPh/efb-video-parser-middleware.git@${EFB_VIDEO_PARSER_MIDDLEWARE_REF}"
+
 # ---- 行为定制补丁（见 patches/patch_custom.py）----
-#   1) 发送者只显示一个名字，避免昵称含特殊 Unicode 时括号里显示成方块
+#   1) 群发送者显示“备注 (微信名)”，去掉会显示成方块的字符；两者相同时只显示一个
 #   2) 微信媒体等待 5s -> 60s（原图延迟下载，5 秒必然失败）
 #   3) 原图等不到时用微信缩略图兜底
+#   4) EFB 重启后旧的“重试”按钮仍可用
+#   5) 收到媒体主动触发下载原文件，转发成功后删除全部副本，并定期清理旧缓存
 COPY patches/patch_custom.py /tmp/patch_custom.py
 RUN python3 /tmp/patch_custom.py && rm -f /tmp/patch_custom.py
 
