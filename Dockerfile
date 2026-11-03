@@ -1,8 +1,17 @@
 # Stage 1: Builder stage - Install build dependencies and Python packages
 FROM python:3.11-alpine AS builder
 
-ENV LANG C.UTF-8
-ENV TZ 'Asia/Shanghai'
+ARG EFB_TELEGRAM_MASTER_REF=533b53c8e627f88fe5196b9828b08f463312d0db
+ARG PYTHON_COMWECHATROBOT_HTTP_REF=f8d2f0b63a6292aae332b12fdd4992d24be92182
+ARG EFB_WECHAT_COMWECHAT_SLAVE_REF=347c772749b4c6c600b22f24aa093ea6e5e8672f
+ARG EFB_MAP_MIDDLEWARE_REF=51f360e95bd38db4bd65485f1bdb5a388e6f5be9
+
+ENV LANG=C.UTF-8 \
+    TZ='Asia/Shanghai' \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_NO_COMPILE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Install build-time dependencies for apk packages and pip packages
 RUN set -ex; \
@@ -20,59 +29,73 @@ RUN set -ex; \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
 RUN pip3 install --no-cache-dir urllib3==1.26.15; \
-    # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
+    pip3 install --no-cache-dir --upgrade 'setuptools>=82.0.1'; \
+    # Install Pillow from pip (the runtime uses it for Telegram media).
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
-    pip3 install --no-cache-dir --no-deps --force-reinstall rich Pillow; \
-    # Install TgCrypto, ignoring any pre-installed PyYAML
-    pip3 install --no-cache-dir --ignore-installed PyYAML TgCrypto;
+    pip3 install --no-cache-dir --no-deps --force-reinstall Pillow; \
+    # Ensure PyYAML is available.
+    pip3 install --no-cache-dir --ignore-installed PyYAML;
 
     # Install other Python dependencies from git and PyPI
-    # Newer efb-telegram-master requires setuptools>=82; pin 80.9.0 in builder
-    # (final stage force-reinstalls it) so pkg_resources stays available.
-RUN pip3 install --no-cache-dir --upgrade "setuptools==80.9.0"; \
-    pip3 install --no-cache-dir ehforwarderbot python-telegram-bot pyqrcode; \
+RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@ebd5acd9790a813fa68a5088ff3641b558d9ecf3; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@${EFB_MAP_MIDDLEWARE_REF}; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    # Pin to 5e48545 (2026-04-25): the last commit before f241e84 added a hard
-    # "setuptools>=82.0.1" dependency in pyproject.toml. setuptools>=81 drops
-    # pkg_resources, which ehforwarderbot 2.1.1 needs at runtime -> deadlock.
-    # 5e48545 still carries the file:// URI media fix and avoids that conflict.
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-telegram-master.git@5e48545; \
-    # Pinned to 3df22af: newer versions fetch messages via a separate "bridge"
-    # service on :19088 (/v1/messages/pull) which the comwechat image does not
-    # provide, breaking message delivery entirely. See README note.
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@3df22af9a6e77e8032681800af4ffb90a3981b4c; \
-    # Pinned to bf54943 to stay compatible with the above http client version.
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-wechat-comwechat-slave.git@bf5494359ad910e6fb4d1f15e85e4c0ca948b394; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-telegram-master.git@${EFB_TELEGRAM_MASTER_REF}; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@${PYTHON_COMWECHATROBOT_HTTP_REF}; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-wechat-comwechat-slave.git@${EFB_WECHAT_COMWECHAT_SLAVE_REF}; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff; \
-    # Voice-to-text middleware (uses the Tencent Cloud ASR key already present in
-    # profiles/comwechat/catbaron.voice_recog/config.yaml)
+    # ---- 自建镜像加装的两个插件（上游预构建镜像未包含）----
+    # 语音消息转文字
     pip3 install --no-cache-dir efb-voice_recog-middleware; \
-    # Chat history search middleware (Chinese keyword search)
+    # 中文关键词搜索历史消息
     pip3 install --no-cache-dir efb-search_msg-middleware; \
-    # Its METADATA ships a malformed requirement "python-telegram-bot (>=10.0.0<12.0.0)"
-    # (missing comma) which makes pkg_resources raise InvalidRequirement. The pin
-    # would also conflict with the ptb 13.x we need, so drop the version specifier.
+    # search_msg 元数据里 "python-telegram-bot (>=10.0.0<12.0.0)" 缺逗号，
+    # pkg_resources 加载中间件时会抛 InvalidRequirement，去掉其版本约束
     sed -i -E 's/^Requires-Dist: python-telegram-bot.*/Requires-Dist: python-telegram-bot/' \
         /usr/local/lib/python3.11/site-packages/efb_search_msg_middleware-*.dist-info/METADATA || true;
 
-# Patch the comwechat slave:
-#   1) widen the hard-coded download wait 120s -> 300s
-#   2) on image timeout, fall back to WeChat's already-downloaded thumbnail
-COPY patches/patch_comwechat.py /tmp/patch_comwechat.py
-RUN python3 /tmp/patch_comwechat.py && rm -f /tmp/patch_comwechat.py
+# ---- 自研中间件（独立仓库，按 commit 固定，升级时改这两个 ARG）----
+#   flechazo.telegraph     所有链接存档到 Telegraph（即时预览），防盗链图片转存 GitHub
+#   flechazo.video_parser  视频链接下载成视频消息，超限无损分段并合并为一条相册（依赖 yt-dlp、ffmpeg）
+ARG EFB_TELEGRAPH_MIDDLEWARE_REF=dc80b514589f91762612c06783285de5c6a0b143
+ARG EFB_VIDEO_PARSER_MIDDLEWARE_REF=9f24cf2aa4d9d809b005e112d88dbd4224fd468d
+RUN pip3 install --no-cache-dir \
+        "git+https://github.com/FlechazoPh/efb-telegraph-middleware.git@${EFB_TELEGRAPH_MIDDLEWARE_REF}" \
+        "git+https://github.com/FlechazoPh/efb-video-parser-middleware.git@${EFB_VIDEO_PARSER_MIDDLEWARE_REF}"
+
+# ---- 行为定制补丁（见 patches/patch_custom.py）----
+#   1) 群发送者显示“备注 (微信名)”，去掉会显示成方块的字符；两者相同时只显示一个
+#   2) 微信媒体等待 5s -> 60s（原图延迟下载，5 秒必然失败）
+#   3) 原图等不到时用微信缩略图兜底
+#   4) EFB 重启后旧的“重试”按钮仍可用
+#   5) 收到媒体主动触发下载原文件，转发成功后删除全部副本，并定期清理旧缓存
+COPY patches/patch_custom.py /tmp/patch_custom.py
+RUN python3 /tmp/patch_custom.py && rm -f /tmp/patch_custom.py
+
+# Keep build-only bytecode and packaging tools out of the copied runtime tree.
+RUN find /usr/local/lib/python3.11/site-packages -type f \
+        \( -name '*.pyc' -o -name '*.pyo' \) -delete \
+    && rm -rf \
+        /usr/local/lib/python3.11/site-packages/pip \
+        /usr/local/lib/python3.11/site-packages/pip-*.dist-info \
+        /usr/local/lib/python3.11/site-packages/wheel \
+        /usr/local/lib/python3.11/site-packages/wheel-*.dist-info
 
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
 FROM python:3.11-alpine
 
-ENV LANG C.UTF-8
-ENV TZ 'Asia/Shanghai'
-ENV EFB_DATA_PATH /data/
-ENV EFB_PARAMS ""
-ENV EFB_PROFILE "default"
-ENV HTTPS_PROXY ""
+ENV LANG=C.UTF-8 \
+    TZ='Asia/Shanghai' \
+    EFB_DATA_PATH=/data/ \
+    EFB_PARAMS="" \
+    EFB_PROFILE="default" \
+    HTTPS_PROXY="" \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_NO_COMPILE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
@@ -86,25 +109,29 @@ RUN set -ex; \
         zlib \
         jpeg \
         libffi \
-        py3-pillow \
         openssl \
-        libwebp \
-        cronie \
-        py3-ruamel.yaml; \
+        sqlcipher-libs \
+        libwebp; \
     # Clean up apk cache
     rm -rf /var/cache/apk/*;
+
+# Remove the base image's packaging tools before copying the single builder
+# version of setuptools and the application packages.
+RUN rm -rf \
+        /usr/local/lib/python3.11/site-packages/pip \
+        /usr/local/lib/python3.11/site-packages/pip-*.dist-info \
+        /usr/local/lib/python3.11/site-packages/setuptools \
+        /usr/local/lib/python3.11/site-packages/setuptools-*.dist-info \
+        /usr/local/lib/python3.11/site-packages/wheel \
+        /usr/local/lib/python3.11/site-packages/wheel-*.dist-info \
+        /usr/local/bin/pip \
+        /usr/local/bin/pip3 \
+        /usr/local/bin/pip3.11
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 # Copy executables installed by pip packages
 COPY --from=builder /usr/local/bin/ehforwarderbot /usr/local/bin/ehforwarderbot
-
-# Force-reinstall setuptools in the final image so the stale 79.0.1 dist-info
-# copied from base/builder is removed. Newer efb-telegram-master requires
-# setuptools>=82, but setuptools>=81 no longer bundles pkg_resources (which
-# ehforwarderbot 2.1.1 imports at runtime). setuptools 80.9.0 is the last
-# version that still ships pkg_resources, so pin to it.
-RUN pip3 install --no-cache-dir --upgrade --force-reinstall "setuptools==80.9.0"
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /entrypoint.sh

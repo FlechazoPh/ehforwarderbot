@@ -1,0 +1,20 @@
+token: "${TG_BOT_TOKEN}" # 必须修改，可参考 https://winamp.eu.org/266.html
+admins:
+- 2105951776 # 必须修改，可参考 https://winamp.eu.org/266.html
+# ETM 默认 read_timeout=15s，超时会触发 "无限重试"，而 Telegram 其实已收到，
+# 导致同一条消息重复投递。使用本地 Bot API Server 时，它要把文件完整上传到
+# Telegram 才返回（经代理约 1.2MB/s，2GB 约半小时），因此读超时放宽到 1 小时。
+request_kwargs:
+    read_timeout: 3600
+    connect_timeout: 20
+flags: # 可选 flag，详见 https://github.com/ehForwarderBot/efb-telegram-master?tab=readme-ov-file#experimental-flags
+    retry_on_error: true
+    # 关闭自动语言设置，使用 systemd 启动时默认中文
+    auto_locale: false
+    animated_stickers: true
+    topic_group: -1001580427954 # 开启 topic_group 所用，参考 https://www.jiz4oh.com/2025/04/set-topic-in-efb
+    # 走本地 Telegram Bot API Server（compose 中的 telegram_bot_api，经 proxy 出站），
+    # 单文件上限从 50MB 提升到 2GB，文件以 file:// 路径直接交给本地服务器。
+    api_base_url: "http://telegram_bot_api:8081/bot"
+    api_base_file_url: "http://telegram_bot_api:8081/file/bot"
+    local_tdlib_api: true

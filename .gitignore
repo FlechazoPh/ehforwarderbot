@@ -1,3 +1,11 @@
 *.db*
 WeChat/
 /comwechat/
+.env
+compose.override.yaml
+proxy/config.yaml
+parsehub/config.yaml
+
+# 含真实密钥的配置（运行时文件，由 scripts/init_secrets.py 从 .env 渲染）
+profiles/*/blueset.telegram/config.yaml
+profiles/*/catbaron.mp_instantview/config.yaml

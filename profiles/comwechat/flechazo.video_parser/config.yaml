@@ -1,0 +1,28 @@
+# flechazo.video_parser — 视频链接下载为视频消息，超限无损分段并合并为一条相册
+# 文档: https://github.com/FlechazoPh/efb-video-parser-middleware
+# 本文件不含密钥：${...} 取自 efb 容器环境变量（compose.yaml 从 .env 传入）
+
+process_links: true
+process_text: true
+max_videos_per_message: 2
+
+# 解析顺序。parsehub 走自建 ParseHub 服务（抖音/快手/微博/小红书视频，服务持有各平台 cookie）
+resolvers: [bilibili, parsehub, douyin, ytdlp, direct]
+# 自建 ParseHub HTTP 服务（compose 里的 parsehub_service）
+parsehub_api: "http://parsehub_service:8000"
+
+# YouTube / X 等境外站点走 mihomo 代理（仅 proxy_domains 内的站点）
+proxy: "${VIDEO_PARSER_PROXY}"
+
+# 抖音也可用这两种（parsehub 优先；都留空时抖音仅靠 parsehub）
+douyin_api: ""            # Douyin_TikTok_Download_API 地址
+cookies_file: ""          # 浏览器导出的 cookies.txt（放在 profile 目录，填容器内路径）
+
+max_duration: 10800
+max_size_mb: 2000
+part_size_mb: 0           # 0 = 自动（本地 Bot API 时 1950MB，否则 49MB）
+reply_to_link: true
+notify_failure: false
+workers: 2
+tmp_dir: /tmp/efb_video_parser   # /tmp 与 telegram_bot_api 共享（efb_tmp volume）
+keep_minutes: 10

@@ -1,2 +1,10 @@
-dir: "/comwechat/Files/"
+dir: "/data/comwechat/Files/"
 qrcode_timeout: 15
+
+# ---- 媒体下载与缓存清理（自建镜像 patches/patch_custom.py #5）----
+# 收到图片/视频/文件 2 秒后原文件还没落盘，就主动调用 GetCdn 触发微信下载原文件
+media_prefetch: true
+# 成功转发到 TG 后删除该消息在磁盘上的所有副本（原文件、重复副本、缩略图、解码图、Temp 副本）
+delete_media_after_send: true
+# 每小时清理一次当前登录账号超过 N 天的媒体缓存（兜底未成功转发的文件），0 为关闭
+media_cleanup_days: 3

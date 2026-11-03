@@ -1,0 +1,133 @@
+# Default, publishable Compose topology. Personal overrides belong in the
+# ignored compose.override.yaml, which Docker Compose loads automatically.
+
+services:
+  efb:
+    image: ${EFB_IMAGE:-ghcr.io/jiz4oh/efb:v3.1.0}
+    container_name: efb
+    depends_on:
+      - comwechat
+      - telegram_bot_api
+    volumes:
+      - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
+      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/data/comwechat/Files
+      - efb_tmp:/tmp
+      - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
+    restart: unless-stopped
+    environment:
+      EFB_PROFILE: comwechat
+      WECHATROBOT_API_BASE: http://comwechat:18888
+      WECHATROBOT_BRIDGE_API_BASE: http://comwechat:19088
+      # referenced as ${...} by profiles/*/flechazo.*/config.yaml
+      TELEGRAPH_TOKEN: ${TELEGRAPH_TOKEN:-}
+      TELEGRAPH_IMAGE_REPO: ${TELEGRAPH_IMAGE_REPO:-}
+      TELEGRAPH_IMAGE_GITHUB_TOKEN: ${TELEGRAPH_IMAGE_GITHUB_TOKEN:-}
+      VIDEO_PARSER_PROXY: ${VIDEO_PARSER_PROXY:-}
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+  comwechat:
+    container_name: comwechat
+    image: ${COMWECHAT_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.09.04}
+    volumes:
+      - comwechat_wine:/home/user/.wine/
+      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
+    environment:
+      VNCPASS: ${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}
+      COMWECHAT_AUTO_LOGIN: "true"
+      COMWECHAT_AUTO_LOGIN_TIMEOUT: "0"
+      COMWECHAT_XWEB_ENABLED: "false"
+      COMWECHAT_THUMBPLAYER_ENABLED: "false"
+    ports:
+      - "${COMWECHAT_VNC_PORT:-5905}:5905"
+    privileged: true
+    restart: unless-stopped
+
+  efb2:
+    profiles: [canary]
+    image: ${EFB_IMAGE:-ghcr.io/jiz4oh/efb:v3.1.0}
+    container_name: efb2
+    depends_on:
+      - comwechat2
+      - telegram_bot_api
+    volumes:
+      - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
+      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/data/comwechat/Files
+      - efb_tmp:/tmp
+      - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
+    restart: unless-stopped
+    environment:
+      EFB_PROFILE: comwechat2
+      WECHATROBOT_API_BASE: http://comwechat2:18888
+      WECHATROBOT_BRIDGE_API_BASE: http://comwechat2:19088
+      PYTHONUNBUFFERED: "1"
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+  comwechat2:
+    profiles: [canary]
+    container_name: comwechat2
+    platform: linux/amd64
+    image: ${COMWECHAT_DEV_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.09.04}
+    environment:
+      VNCPASS: ${COMWECHAT2_VNC_PASSWORD:-${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}}
+      COMWECHAT_BRIDGE_SNAPSHOT_NAME: comwechat2
+      COMWECHAT_AUTO_LOGIN: "true"
+      COMWECHAT_AUTO_LOGIN_TIMEOUT: "0"
+      COMWECHAT_XWEB_ENABLED: "false"
+      COMWECHAT_THUMBPLAYER_ENABLED: "false"
+    volumes:
+      - comwechat2_wine:/home/user/.wine/
+      - .:/runtime-host/
+      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
+    ports:
+      - "${COMWECHAT2_VNC_PORT:-5906}:5905"
+    privileged: true
+    restart: unless-stopped
+
+  telegram_bot_api:
+    image: ${TELEGRAM_BOT_API_IMAGE:-ghcr.io/jiz4oh/telegram-bot-api-server:latest}
+    container_name: telegram_bot_api
+    privileged: true
+    restart: unless-stopped
+    environment:
+      TGSOCKS_PROXY_HOST: ${TGSOCKS_PROXY_HOST:-127.0.0.1}
+      TGSOCKS_PROXY_PORT: ${TGSOCKS_PROXY_PORT:-7890}
+    volumes:
+      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/data/comwechat/Files/
+      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/data/comwechat/efb2/Files
+      - efb_tmp:/tmp
+      - telegram_bot_api_data:/var/lib/telegram-bot-api
+    command:
+      - "--local"
+      - "--http-port=8081"
+      - "--api-id=${TELEGRAM_API_ID:?set TELEGRAM_API_ID in .env or your shell}"
+      - "--api-hash=${TELEGRAM_API_HASH:?set TELEGRAM_API_HASH in .env or your shell}"
+      - "--dir=/var/lib/telegram-bot-api"
+
+  # 社交媒体链接解析服务（parsehub，Python 3.12，独立于 efb 镜像）。
+  # 给 flechazo.video_parser / flechazo.telegraph 解析抖音/小红书等的视频与图文。
+  parsehub_service:
+    image: ${PARSEHUB_IMAGE:-parsehub-service:latest}
+    build: ../parsehub-service
+    container_name: parsehub_service
+    restart: unless-stopped
+    environment:
+      PARSEHUB_PROXY: ${PARSEHUB_PROXY:-http://proxy:7890}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./parsehub/config.yaml:/config/config.yaml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+volumes:
+  comwechat_wine:
+  comwechat2_wine:
+  efb_tmp:
+  telegram_bot_api_data:
